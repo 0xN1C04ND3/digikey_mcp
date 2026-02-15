@@ -27,7 +27,11 @@ Set `USE_SANDBOX=true` to use DigiKey's sandbox environment for testing.
 
 ### 3. Run the server
 ```bash
-uv run python digikey_mcp_server.py
+# Using entry point (recommended)
+uv run digikey-mcp
+
+# Or using module
+uv run python -m digikey_mcp
 ```
 
 ## Available Tools
@@ -92,6 +96,23 @@ product_details("296-8875-1-ND")
 get_product_pricing("296-8875-1-ND", requested_quantity=100)
 ```
 
+## Architecture
+
+The server follows a modular structure for better maintainability:
+
+```
+digikey/
+├── src/digikey_mcp/
+│   ├── server.py          # FastMCP server with tool registration
+│   ├── client.py          # OAuth2 API client
+│   └── api/               # Modular API operation modules
+│       ├── search.py      # Search operations (keyword_search, product_details)
+│       ├── catalog.py     # Catalog operations (manufacturers, categories)
+│       └── product.py     # Product operations (substitutions, media, pricing)
+├── pyproject.toml         # Package configuration with entry point
+└── README.md
+```
+
 ## Claude Desktop Integration
 
 Add this to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
@@ -101,8 +122,12 @@ Add this to your Claude Desktop config (`~/Library/Application Support/Claude/cl
   "mcpServers": {
     "digikey": {
       "command": "uv",
-      "args": ["run", "python", "digikey_mcp_server.py"],
-      "cwd": "/path/to/project"
+      "args": ["run", "--directory", "/path/to/digikey", "digikey-mcp"],
+      "env": {
+        "CLIENT_ID": "your_digikey_client_id",
+        "CLIENT_SECRET": "your_digikey_client_secret",
+        "USE_SANDBOX": "false"
+      }
     }
   }
 }

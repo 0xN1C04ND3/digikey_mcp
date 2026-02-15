@@ -4,6 +4,8 @@ import logging
 from fastmcp import FastMCP
 from dotenv import load_dotenv
 import requests
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 # Configure logging
 logging.basicConfig(
@@ -265,9 +267,9 @@ def get_digi_reel_pricing(
     return _make_request("GET", url, headers)
 
 
-@app.get("/health")
-async def health():
-    return {"status": "ok", "service": "digikey-mcp"}
+@mcp.custom_route("/health", methods=["GET"])
+async def health(request: Request):
+    return JSONResponse({"status": "ok", "service": "digikey-mcp"})
 
 
 def main():
@@ -276,4 +278,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
