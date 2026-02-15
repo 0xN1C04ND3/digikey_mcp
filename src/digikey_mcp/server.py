@@ -33,15 +33,44 @@ logger = logging.getLogger(__name__)
 # Initialize FastMCP server
 mcp = FastMCP("DigiKey MCP Server")
 
-# Initialize and authenticate DigiKey client at startup
-CLIENT_ID = os.getenv("CLIENT_ID")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-USE_SANDBOX = os.getenv("USE_SANDBOX", "false").lower() == "true"
+# Lazy client initialization (like InvenTree)
+_client = None
 
-logger.info("=== STARTING DIGIKEY MCP SERVER ===")
-client = DigiKeyClient(CLIENT_ID, CLIENT_SECRET, USE_SANDBOX)
-client.authenticate()
-logger.info("=== SERVER READY ===")
+
+def get_client():
+    """Get or create the DigiKey client instance (lazy initialization).
+
+    Returns:
+        DigiKeyClient: Authenticated DigiKey API client
+
+    Raises:
+        ValueError: If CLIENT_ID or CLIENT_SECRET are not set
+    """
+    global _client
+
+    if _client is None:
+        client_id = os.getenv("CLIENT_ID")
+        client_secret = os.getenv("CLIENT_SECRET")
+        use_sandbox = os.getenv("USE_SANDBOX", "false").lower() == "true"
+
+        if not client_id or not client_secret:
+            raise ValueError("CLIENT_ID and CLIENT_SECRET must be set in environment")
+
+        logger.info("=== INITIALIZING DIGIKEY CLIENT ===")
+        _client = DigiKeyClient(client_id, client_secret, use_sandbox)
+        _client.authenticate()
+        logger.info("=== CLIENT READY ===")
+
+    return _client
+
+
+def _initialize_client():
+    """Initialize client at startup (for backwards compatibility).
+
+    This is called by main() to maintain the original behavior of
+    initializing the client at server startup.
+    """
+    get_client()
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -61,7 +90,7 @@ async def health(request: Request):
 
 
 @mcp.tool()
-def keyword_search_tool(
+async def keyword_search_tool(
     keywords: str,
     limit: int = 5,
     manufacturer_id: str = None,
@@ -82,7 +111,7 @@ def keyword_search_tool(
         sort_order: Sort direction - Ascending or Descending (default: Ascending)
     """
     return keyword_search(
-        client,
+        get_client(),
         keywords,
         limit,
         manufacturer_id,
@@ -94,7 +123,7 @@ def keyword_search_tool(
 
 
 @mcp.tool()
-def product_details_tool(
+async def product_details_tool(
     product_number: str, manufacturer_id: str = None, customer_id: str = "0"
 ):
     """Get detailed information for a specific product.
@@ -104,33 +133,33 @@ def product_details_tool(
         manufacturer_id: Optional manufacturer ID for disambiguation
         customer_id: Customer ID for pricing (default: "0")
     """
-    return product_details(client, product_number, manufacturer_id, customer_id)
+    return product_details(get_client(), product_number, manufacturer_id, customer_id)
 
 
 @mcp.tool()
-def search_manufacturers_tool():
+async def search_manufacturers_tool():
     """Search and retrieve all product manufacturers."""
-    return search_manufacturers(client)
+    return search_manufacturers(get_client())
 
 
 @mcp.tool()
-def search_categories_tool():
+async def search_categories_tool():
     """Search and retrieve all product categories."""
-    return search_categories(client)
+    return search_categories(get_client())
 
 
 @mcp.tool()
-def get_category_by_id_tool(category_id: int):
+async def get_category_by_id_tool(category_id: int):
     """Get specific category details by ID.
 
     Args:
         category_id: The category ID to retrieve
     """
-    return get_category_by_id(client, category_id)
+    return get_category_by_id(get_client(), category_id)
 
 
 @mcp.tool()
-def search_product_substitutions_tool(
+async def search_product_substitutions_tool(
     product_number: str,
     limit: int = 10,
     search_options: str = None,
@@ -145,22 +174,22 @@ def search_product_substitutions_tool(
         exclude_marketplace: Exclude marketplace products (default: False)
     """
     return search_product_substitutions(
-        client, product_number, limit, search_options, exclude_marketplace
+        get_client(), product_number, limit, search_options, exclude_marketplace
     )
 
 
 @mcp.tool()
-def get_product_media_tool(product_number: str):
+async def get_product_media_tool(product_number: str):
     """Get media (images, documents, videos) for a product.
 
     Args:
         product_number: The product to get media for
     """
-    return get_product_media(client, product_number)
+    return get_product_media(get_client(), product_number)
 
 
 @mcp.tool()
-def get_product_pricing_tool(
+async def get_product_pricing_tool(
     product_number: str, customer_id: str = "0", requested_quantity: int = 1
 ):
     """Get detailed pricing information for a product.
@@ -170,11 +199,13 @@ def get_product_pricing_tool(
         customer_id: Customer ID for pricing (default: "0")
         requested_quantity: Quantity for pricing calculation (default: 1)
     """
-    return get_product_pricing(client, product_number, customer_id, requested_quantity)
+    return get_product_pricing(
+        get_client(), product_number, customer_id, requested_quantity
+    )
 
 
 @mcp.tool()
-def get_digi_reel_pricing_tool(
+async def get_digi_reel_pricing_tool(
     product_number: str, requested_quantity: int, customer_id: str = "0"
 ):
     """Get DigiReel pricing for a product.
@@ -185,7 +216,7 @@ def get_digi_reel_pricing_tool(
         customer_id: Customer ID for pricing (default: "0")
     """
     return get_digi_reel_pricing(
-        client, product_number, requested_quantity, customer_id
+        get_client(), product_number, requested_quantity, customer_id
     )
 
 
@@ -197,6 +228,10 @@ def get_digi_reel_pricing_tool(
 def main():
     """Main entry point for the DigiKey MCP server."""
     logger.info("Starting DigiKey MCP server")
+
+    # Initialize client at startup (backwards compatible)
+    _initialize_client()
+
     mcp.run()
 
 

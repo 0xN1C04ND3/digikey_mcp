@@ -3,17 +3,37 @@ name = "digikey-mcp"
 version = "0.1.0"
 description = "DigiKey MCP Server for product search"
 dependencies = [
-    "fastmcp",
+    "fastmcp>=2.14.0",
     "requests",
     "python-dotenv",
 ]
 requires-python = ">=3.10"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-mock>=3.12.0",
+]
 
 [project.scripts]
 digikey-mcp = "digikey_mcp.server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/digikey_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "unit: marks tests as unit tests (no external dependencies)",
+    "mcp_client: marks tests as MCP client protocol tests",
+    "integration: marks tests as integration tests (require real DigiKey API)",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
 
 [build-system]
 requires = ["hatchling"]
