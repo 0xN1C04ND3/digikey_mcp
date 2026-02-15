@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-USE_SANDBOX = os.getenv("USE_SANDBOX", "true").lower() == "false"
+USE_SANDBOX = os.getenv("USE_SANDBOX", "true").lower() == "true"
 
 # DigiKey OAuth2 token endpoint
 if USE_SANDBOX:
@@ -273,7 +273,20 @@ async def health(request: Request):
 
 
 def main():
-    mcp.run()
+    """Main entry point for the DigiKey MCP server."""
+    import sys
+
+    # Check if SSE mode is requested
+    if len(sys.argv) > 1 and sys.argv[1] == "sse":
+        logger.info("Starting DigiKey MCP server in SSE mode")
+        mcp.run(
+            transport="sse",
+            host=os.getenv("HOST", "0.0.0.0"),
+            port=int(os.getenv("PORT", "8000")),
+        )
+    else:
+        logger.info("Starting DigiKey MCP server in STDIO mode")
+        mcp.run()
 
 
 if __name__ == "__main__":
